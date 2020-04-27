@@ -3,21 +3,12 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MainActivity">
-
+    tools:context=".ThirdActivity">
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="启动ThirdActivity"
-        android:onClick="startThirdActivity"
-        tools:ignore="HardcodedText" />
-
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="启动SecondActivity"
+        android:text="ThirdActivity"
         android:layout_gravity="center"
-        android:onClick="startSecondActivity"
+        android:onClick="startMainActivity"
         tools:ignore="HardcodedText" />
-
 </FrameLayout>

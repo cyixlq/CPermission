@@ -1,2 +1,3 @@
 rootProject.name='CPermission'
 include ':app'
+include ':library'
