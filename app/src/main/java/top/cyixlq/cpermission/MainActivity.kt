@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import top.cyixlq.permission.CPermission
 
@@ -20,23 +21,39 @@ class MainActivity : AppCompatActivity() {
             Manifest.permission.CALL_PHONE
         ).dealWith {
             allGranted {
-                showToast("已经全部允许")
+                showToast("所有权限已经被允许")
             }
             someDeny {
-                showToast("部分被暂时拒绝或者永远拒绝")
-                val denyStr = StringBuilder("已经被永久拒绝：")
-                val rationaleStr = StringBuilder("被暂时拒绝：")
-                for (permission in it) {
-                    if (permission.canShowAgain) {
-                        rationaleStr.append(permission.name).append("\n")
-                        retry(permission.name) // 当这个权限可以继续弹出时，重试一次
-                    } else {
-                        denyStr.append(permission.name).append("\n")
+                showToast("部分权限被永久拒绝")
+                for (i in it) {
+                    if (i == Manifest.permission.CAMERA) {
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle("警告")
+                            .setMessage("相机权限为必须权限，如果没有这个权限，APP将无法正常运行！")
+                            .setPositiveButton("确定") { _, _ ->
+                                retry()
+                            }.show()
                     }
                 }
-                Log.w("CY_TAG", denyStr.toString() + "\n" + rationaleStr.toString())
             }
-        }.start(this)
+            // 当有权限被临时拒绝和有权限被永久拒绝的情况下
+            // 优先回调被临时拒绝的这个someNotice方法
+            // 不回调被永久拒绝的这个someDeny方法，注意不回调，不回调，不回调！！！
+            // 所以无论怎么样，请保证someNotice被实现，或者说在三种情况下都有不同逻辑的，最好三个方法都要被实现
+            someNotice {
+                showToast("部分权限被暂时拒绝")
+                for (i in it) {
+                    if (i == Manifest.permission.CAMERA) {
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle("警告")
+                            .setMessage("相机权限为必须权限，如果没有这个权限，APP将无法正常运行！")
+                            .setPositiveButton("确定") { _, _ ->
+                                retry()
+                            }.show()
+                    }
+                }
+            }
+        }
     }
 
     fun startSecondActivity(v: View) {
