@@ -9,8 +9,8 @@ import top.cyixlq.permission.bean.PermissionResult
 import top.cyixlq.permission.fragment.PermissionFragment
 
 class CPermission(
-    private val fragmentManager: FragmentManager,
-    lifecycleOwner: LifecycleOwner
+    private var fragmentManager: FragmentManager?,
+    private var lifecycleOwner: LifecycleOwner?
 ) : LifecycleObserver{
 
     companion object {
@@ -27,25 +27,27 @@ class CPermission(
         private const val TAG = "PermissionFragment"
     }
 
-    private val mPermissionFragment by lazy {
+    private val mPermissionFragment: PermissionFragment by lazy {
         getLazySingleInstance()
     }
 
 
     init {
-        mPermissionFragment.permissionResultLiveData.observe(lifecycleOwner, Observer {
-            when(it) {
-                is PermissionResult.AllGrant -> allGranted?.invoke()
-                is PermissionResult.SomeDeny -> someDeny?.invoke(it.permissions)
-                is PermissionResult.SomeNotice -> someNotice?.invoke(it.permissions)
-            }
-        })
-        mPermissionFragment.retryLiveData.observe(lifecycleOwner, Observer {
-            permissions?.let {
-                mPermissionFragment.request(it)
-            }
-        })
-        lifecycleOwner.lifecycle.addObserver(this)
+        lifecycleOwner?.let {owner ->
+            mPermissionFragment.permissionResultLiveData.observe(owner, Observer {
+                when(it) {
+                    is PermissionResult.AllGrant -> allGranted?.invoke()
+                    is PermissionResult.SomeDeny -> someDeny?.invoke(it.permissions)
+                    is PermissionResult.SomeNotice -> someNotice?.invoke(it.permissions)
+                }
+            })
+            mPermissionFragment.retryLiveData.observe(owner, Observer {
+                permissions?.let {
+                    mPermissionFragment.request(it)
+                }
+            })
+            owner.lifecycle.addObserver(this)
+        }
     }
 
     private var allGranted: (() -> Unit)? = null
@@ -54,10 +56,10 @@ class CPermission(
     private var permissions: Array<out String>? = null
 
     private fun getLazySingleInstance(): PermissionFragment {
-        var permissionFragment: PermissionFragment? = fragmentManager.findFragmentByTag(TAG) as PermissionFragment?
+        var permissionFragment: PermissionFragment? = fragmentManager?.findFragmentByTag(TAG) as PermissionFragment?
         if (permissionFragment == null) {
             permissionFragment = PermissionFragment.instance()
-            fragmentManager.beginTransaction().add(permissionFragment, TAG).commitNow()
+            fragmentManager?.beginTransaction()?.add(permissionFragment, TAG)?.commitNow()
         }
         return permissionFragment
     }
@@ -82,6 +84,9 @@ class CPermission(
         this.someNotice = null
         this.allGranted = null
         this.someDeny = null
-        fragmentManager.beginTransaction().remove(mPermissionFragment)
+        this.lifecycleOwner?.lifecycle?.removeObserver(this)
+        this.lifecycleOwner = null
+        this.fragmentManager?.beginTransaction()?.remove(mPermissionFragment)
+        this.fragmentManager = null
     }
 }
