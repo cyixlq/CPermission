@@ -1,23 +1,32 @@
 package top.cyixlq.permission.fragment
 
+import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.MutableLiveData
-import top.cyixlq.permission.bean.PermissionResult
-import java.util.ArrayList
+import top.cyixlq.permission.CPermissionBuilder
 
 class PermissionFragment : Fragment() {
 
     companion object {
         fun instance(): PermissionFragment = PermissionFragment()
         private const val REQUEST_CODE = 100
+        const val SETTING_REQUEST_CODE = 200
     }
 
-    val permissionResultLiveData = MutableLiveData<PermissionResult>()
-    val retryLiveData = MutableLiveData<Int>()
+    private var builder: CPermissionBuilder? = null
 
-    fun request(permissions: Array<out String>) {
-        requestPermissions(permissions, REQUEST_CODE)
+    fun request(builder: CPermissionBuilder) {
+        this.builder = builder
+        requestPermissions(builder.permissions, REQUEST_CODE)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == SETTING_REQUEST_CODE) { // 设置完权限回到界面再次请求权限用来检查是否全部允许了
+            builder?.let {
+                requestPermissions(it.permissions, REQUEST_CODE)
+            }
+        }
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -27,8 +36,9 @@ class PermissionFragment : Fragment() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        val denyPermissions = ArrayList<String>()
-        val noticePermissions = ArrayList<String>()
+        val pb = builder ?: return
+        val denyPermissions = HashSet<String>()
+        val noticePermissions = HashSet<String>()
         if (requestCode != REQUEST_CODE) return
         grantResults.forEachIndexed { index, i ->
             val permission = permissions[index]
@@ -40,14 +50,18 @@ class PermissionFragment : Fragment() {
                     denyPermissions.add(permission)
             }
         }
-        // 会优先处理可以再次弹框的权限，所以请保证不要漏写someNotice方法
         if (denyPermissions.isEmpty() && noticePermissions.isEmpty()) {
-            permissionResultLiveData.value = PermissionResult.allGrant()
+            pb.allGranted?.invoke()
         } else if (noticePermissions.isNotEmpty()) {
-            permissionResultLiveData.value = PermissionResult.someNotice(noticePermissions)
+            val showReasonCallback = pb.showReason
+            if (showReasonCallback != null) {
+                showReasonCallback.invoke(pb, noticePermissions)
+            } else {
+                denyPermissions.addAll(noticePermissions)
+                pb.someDeny?.invoke(pb, denyPermissions)
+            }
         } else {
-            permissionResultLiveData.value = PermissionResult.someDeny(denyPermissions)
+            pb.someDeny?.invoke(pb, denyPermissions)
         }
     }
-
 }

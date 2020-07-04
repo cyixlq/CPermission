@@ -6,7 +6,6 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import top.cyixlq.permission.CPermission
 
@@ -15,45 +14,21 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        CPermission.get(this).requestPermissions(
+        CPermission.get(this).permissions(
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
             Manifest.permission.CAMERA,
             Manifest.permission.CALL_PHONE
-        ).dealWith {
-            allGranted {
-                showToast("所有权限已经被允许")
-            }
-            someDeny {
-                showToast("部分权限被永久拒绝")
-                for (i in it) {
-                    if (i == Manifest.permission.CAMERA) {
-                        AlertDialog.Builder(this@MainActivity)
-                            .setTitle("警告")
-                            .setMessage("相机权限为必须权限，如果没有这个权限，APP将无法正常运行！")
-                            .setPositiveButton("确定") { _, _ ->
-                                retry()
-                            }.show()
-                    }
-                }
-            }
-            // 当有权限被临时拒绝和有权限被永久拒绝的情况下
-            // 优先回调被临时拒绝的这个someNotice方法
-            // 不回调被永久拒绝的这个someDeny方法，注意不回调，不回调，不回调！！！
-            // 所以无论怎么样，请保证someNotice被实现，或者说在三种情况下都有不同逻辑的，最好三个方法都要被实现
-            someNotice {
-                showToast("部分权限被暂时拒绝")
-                for (i in it) {
-                    if (i == Manifest.permission.CAMERA) {
-                        AlertDialog.Builder(this@MainActivity)
-                            .setTitle("警告")
-                            .setMessage("相机权限为必须权限，如果没有这个权限，APP将无法正常运行！")
-                            .setPositiveButton("确定") { _, _ ->
-                                retry()
-                            }.show()
-                    }
-                }
-            }
-        }
+        ).onAllGrant {
+            showToast("全部权限已经允许")
+        }.onShowReason{scope, permissions ->
+            val msg = genMessage(permissions,
+                "这些权限是程序运行时的必要权限，但是您暂时拒绝了它们，请在接下来的弹窗中允许它们")
+            scope.showReasonDialog(msg = msg, btnText = " 我明白了")
+        }.onSomeDeny { scope, permissions ->
+            val msg = genMessage(permissions,
+                "这些权限是程序运行时的必要权限，但是您永久拒绝了它们，请前往设置重新允许它们")
+            scope.showForwardToSettingsDialog(msg = msg, btnText = "前往设置")
+        }.go()
     }
 
     fun startSecondActivity(v: View) {
@@ -64,6 +39,27 @@ class MainActivity : AppCompatActivity() {
         startActivity(Intent(this, ThirdActivity::class.java))
     }
 
+    private fun genMessage(permissions: HashSet<String>, subMsg: String): String {
+        return StringBuilder().apply {
+            permissions.forEachIndexed { index, s ->
+                append(convertPermissionName(s))
+                if (index < permissions.size - 1)
+                    append("、")
+                else
+                    append(";")
+            }
+            append(subMsg)
+        }.toString()
+    }
+
+    private fun convertPermissionName(tag: String): String {
+        return when(tag) {
+            Manifest.permission.WRITE_EXTERNAL_STORAGE -> "读写存储权限"
+            Manifest.permission.CAMERA -> "相机权限"
+            Manifest.permission.CALL_PHONE -> "拨打电话权限"
+            else -> ""
+        }
+    }
 
     private fun showToast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
